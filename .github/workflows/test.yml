@@ -1,0 +1,33 @@
+name: Swift
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: ubuntu-latest
+            container: swift:6.0-noble
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - name: Complete test suite
+        run: SWIFT_AGENT_INTEGRATION_TESTS=1 swift test --parallel --num-workers 4
+      - run: sh Tests/Integration/version-smoke.sh
+      - run: sh Tests/Integration/package-consumer-smoke.sh
+      - run: ./Scripts/install.sh /tmp/swift-agent-bin
+      - run: sh Tests/Integration/generic-cli-smoke.sh /tmp/swift-agent-bin/swift-agent
+      - name: Package tested CLI
+        run: |
+          mkdir -p dist/swift-agent
+          cp /tmp/swift-agent-bin/swift-agent README.md LICENSE dist/swift-agent/
+          tar -czf "dist/swift-agent-$(uname -s)-$(uname -m).tar.gz" -C dist swift-agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swift-agent-${{ matrix.os }}
+          path: dist/*.tar.gz

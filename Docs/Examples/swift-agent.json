@@ -1,0 +1,8 @@
+{
+  "harness": "codex",
+  "maxIterations": 100,
+  "failureLimit": 3,
+  "saturationLimit": 2,
+  "verification": ["swift test"],
+  "instructions": "Prefer small, behavior-preserving changes."
+}
