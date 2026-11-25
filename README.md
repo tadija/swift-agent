@@ -1,6 +1,6 @@
 # SwiftAgent
 
-A harness-agnostic Swift framework for autonomous, iterative repository agents.
+A Swift package for building autonomous, iterative repository agents.
 
 Give an agent a name, a Markdown mission, and optional configuration. SwiftAgent
 handles isolated Git worktrees, harness execution, verification, commits, history,
@@ -8,7 +8,7 @@ limits, cancellation, and scheduling.
 
 ## Install
 
-Requires Swift 6+, Git, and macOS or Linux. Install and authenticate Codex,
+Requires Swift 6.4+, Git, and macOS 13+ or Linux. Install and authenticate Codex,
 Claude Code, Pi, OpenCode, or Gemini; alternatively use a configured Ollama server.
 
 ```sh
@@ -19,10 +19,14 @@ export PATH="$HOME/.local/bin:$PATH"
 swift-agent --version
 ```
 
-Pass a destination to install elsewhere: `./Scripts/install.sh /path/to/bin`.
-Update your checkout and rerun the installer to upgrade. Replacement is atomic
-after a successful release build. The executable embeds its version and revision;
-it needs no checkout or resource bundle at runtime. Self-update is not provided.
+The installer defaults to `~/.local/bin`. Pass another destination with
+`./Scripts/install.sh /path/to/bin`. Installed executables embed their product
+metadata and need no source checkout or resource bundle.
+
+Run `swift-agent update` to build and atomically install the configured `main`
+source, or update your checkout and rerun the installer. Source updates require
+Git and Swift and execute code from the trusted repository. See
+[source updates](Docs/SourceUpdates.md) for installation policies and safeguards.
 
 ## Run a Markdown mission
 
@@ -70,13 +74,29 @@ or an OS sandbox. Worktrees are Git isolation, not a security sandbox.
 
 ## Create a custom agent
 
-Depend on the `SwiftAgent` and `SwiftAgentCLI` products from this package:
+Define a product with required target-local `agent.json` metadata and an optional
+`prompt.md` mission. `AgentProductPlugin` compiles these inputs into the executable:
 
-```swift
-.package(url: "https://github.com/tadija/swift-agent.git", .upToNextMinor(from: "0.1.0"))
+```text
+Sources/doc-agent/
+    main.swift
+    prompt.md
+    agent.json
 ```
 
-A specialized executable supplies its definition and uses the shared CLI:
+```json
+{"name":"Documentation Agent","version":"1.0.0","executableName":"doc-agent"}
+```
+
+Apply the build tool to your executable target:
+
+```swift
+plugins: [
+    .plugin(name: "AgentProductPlugin", package: "swift-agent")
+]
+```
+
+The entry point assembles the product and uses the shared CLI:
 
 ```swift
 import SwiftAgent
@@ -87,39 +107,36 @@ import Glibc
 import Darwin
 #endif
 
-let agent = AgentDefinition(
-    name: "Documentation Agent",
-    executableName: "doc-agent",
-    mission: "Improve one missing or incorrect usage example."
-)
-exit(AgentCLI.run(agent: agent))
+let product = EmbeddedProduct.metadata
+let agent = AgentDefinition(name: product.name, executableName: product.executableName,
+                            mission: EmbeddedMission.prompt)
+let update = try product.update.map {
+    try SourceUpdateConfiguration(repository: $0.repository, reference: $0.reference)
+}
+exit(AgentCLI.run(agent: agent, version: product.displayVersion, sourceUpdate: update))
 ```
 
-Or call the engine directly:
+[Declarative products and build tooling](Docs/BuildTooling.md) provides the complete
+manifest, input schema, plugin examples, and installation instructions.
+Add an optional `update` repository to `agent.json` to enable the shared update
+command; the entry point above handles either case. The metadata and mission
+generators remain independent of each other and the runtime engine.
+The generic executable uses metadata alone and supplies no artificial mission.
+The plugin is optional; products can construct `AgentDefinition` directly.
 
-```swift
-let repository = try Repository(at: directory)
-var config = try Configuration.load(repository: repository, agent: agent)
-config.maxIterations = 3
-let harness = try Harnesses.select(configuration: config, directory: directory)
-let records = try Runner(agent: agent).runSession(
-    at: directory, configuration: config, harness: harness
-)
-```
-
-[API and package integration](Docs/API.md) includes a complete manifest, metadata
-and mission embedding guidance, public types, and cancellation limitations.
+For direct engine integration, see [API and package integration](Docs/API.md).
 
 ## Architecture and development
 
 `SwiftAgent` owns the engine and internal C process support. `SwiftAgentCLI` owns
-argument parsing and terminal output. `swift-agent` is the generic executable.
+argument parsing, terminal output, and source updates. `swift-agent` is the generic
+executable.
 Applications supply mission, identity, defaults, metadata, and optional updates.
 The engine has no dependency on a specialized application or external Swift package.
 
 - [Specification](Docs/Specs.md) — execution and publication guarantees.
-- [Testing](Docs/Tests.md) — independent tests and distribution checks.
-- [Provenance and releases](Docs/Provenance.md) — history, versioning, publication sequence.
+- [Testing](Docs/Tests.md) — library, CLI, build tooling, and consumer checks.
 
-Version `0.1.0` is the initial independent package release. See the provenance
-and release guide for versioning and downstream dependency conventions.
+---
+
+`done for fun`

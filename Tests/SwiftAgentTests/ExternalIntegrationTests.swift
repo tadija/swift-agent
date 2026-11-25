@@ -14,7 +14,7 @@ final class ExternalIntegrationTests: RepositoryTestCase {
     func testZeroConfigSwiftPackageDetectsAndRunsTests() throws {
         try FileManager.default.removeItem(at: checkout.appendingPathComponent("swift-agent.json"))
         try write("Package.swift", """
-        // swift-tools-version: 6.0
+        // swift-tools-version: 6.4
         import PackageDescription
         let package = Package(name: "Fixture", targets: [
             .target(name: "Fixture"), .testTarget(name: "FixtureTests", dependencies: ["Fixture"])

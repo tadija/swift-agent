@@ -10,7 +10,7 @@ jobs:
         include:
           - os: macos-latest
           - os: ubuntu-latest
-            container: swift:6.0-noble
+            container: swift:6.4
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -18,10 +18,24 @@ jobs:
       - run: swift --version
       - name: Complete test suite
         run: SWIFT_AGENT_INTEGRATION_TESTS=1 swift test --parallel --num-workers 4
-      - run: sh Tests/Integration/version-smoke.sh
+      - run: sh Tests/Integration/build-tool-smoke.sh
       - run: sh Tests/Integration/package-consumer-smoke.sh
+      - run: sh Tests/Integration/source-update-smoke.sh
+      - name: Declare artifact build identity
+        run: |
+          swift -e '
+          import Foundation
+          let input = URL(fileURLWithPath: "Sources/swift-agent/agent.json")
+          var product = try JSONSerialization.jsonObject(with: Data(contentsOf: input)) as! [String: Any]
+          let revision = ProcessInfo.processInfo.environment["GITHUB_SHA"]!
+          product["build"] = String(revision.prefix(7))
+          var data = try JSONSerialization.data(withJSONObject: product, options: [.prettyPrinted, .sortedKeys])
+          data.append(0x0A)
+          try data.write(to: input, options: .atomic)
+          '
       - run: ./Scripts/install.sh /tmp/swift-agent-bin
       - run: sh Tests/Integration/generic-cli-smoke.sh /tmp/swift-agent-bin/swift-agent
+      - run: sh Tests/Integration/cli-commands-smoke.sh /tmp/swift-agent-bin/swift-agent
       - name: Package tested CLI
         run: |
           mkdir -p dist/swift-agent

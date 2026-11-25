@@ -48,7 +48,6 @@ grep -q DOCUMENTATION_MISSION "$fixture/preview"
 grep -q no_candidate "$fixture/configured-run"
 "$agent" schedule add --at 00:00 --duration 1m > "$fixture/schedule"
 "$agent" schedule list | grep -q 'daily 00:00'
-# Self-update remains application-owned; reinstall from the upstream checkout.
-if "$agent" update > "$fixture/update" 2>&1; then exit 1; fi
-grep -q 'Self-update is unavailable' "$fixture/update"
+# Help must expose source update support without starting a network operation.
+"$agent" update --help | grep -q 'update .*configured source'
 printf 'Generic CLI smoke test passed\n'

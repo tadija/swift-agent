@@ -12,6 +12,16 @@ final class ConfigurationTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Configuration.self, from: data)
         try decoded.validate()
         XCTAssertEqual(decoded.maxIterations, 1)
+        XCTAssertEqual(decoded.failureLimit, 3)
+        XCTAssertEqual(decoded.saturationLimit, 2)
+        XCTAssertFalse(decoded.push)
+        XCTAssertEqual(decoded.instructions, "")
+        XCTAssertEqual(decoded.protectedPaths, [])
+        XCTAssertEqual(decoded.timeoutSeconds, 1800)
+        XCTAssertEqual(decoded.maxChangedFiles, 12)
+        XCTAssertEqual(decoded.ollamaHost, "http://127.0.0.1:11434")
+        XCTAssertEqual(decoded.ollamaMaxTurns, 40)
+        XCTAssertEqual(decoded.ollamaContextLength, 32768)
         XCTAssertEqual(decoded.commitIdentity, Configuration(agent: .testAgent).commitIdentity)
     }
 

@@ -26,15 +26,15 @@ public struct Check: Codable {
 
 public struct Record: Codable {
     public let id: String
-    public var sessionID: String?
-    public var harness: String?
-    public internal(set) var terminal: Bool?
+    public let sessionID: String
+    public let harness: String
+    public internal(set) var terminal: Bool = false
     public let repository: String
     public let branch: String
     public let started: Date
     public var finished: Date?
     public var phase: String?
-    public var phaseSeconds: [String: Double]?
+    public var phaseSeconds: [String: Double] = [:]
     public var outcome: String
     public var baseline: String?
     public var commit: String?
@@ -43,6 +43,37 @@ public struct Record: Codable {
     public var baselineChecks: [Check] = []
     public var checks: [Check] = []
     public var detail: String?
+}
+
+extension Record {
+    private enum CodingKeys: String, CodingKey {
+        case id, sessionID, harness, terminal, repository, branch, started, finished, phase
+        case phaseSeconds, outcome, baseline, commit, task, paths, baselineChecks, checks, detail
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        // Older history omitted these fields (or encoded null). Normalize on read
+        // while keeping the current nonoptional API and encoded record format.
+        sessionID = try values.decodeIfPresent(String.self, forKey: .sessionID) ?? id
+        harness = try values.decodeIfPresent(String.self, forKey: .harness) ?? "unknown"
+        terminal = try values.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
+        phaseSeconds = try values.decodeIfPresent([String: Double].self, forKey: .phaseSeconds) ?? [:]
+        repository = try values.decode(String.self, forKey: .repository)
+        branch = try values.decode(String.self, forKey: .branch)
+        started = try values.decode(Date.self, forKey: .started)
+        finished = try values.decodeIfPresent(Date.self, forKey: .finished)
+        phase = try values.decodeIfPresent(String.self, forKey: .phase)
+        outcome = try values.decode(String.self, forKey: .outcome)
+        baseline = try values.decodeIfPresent(String.self, forKey: .baseline)
+        commit = try values.decodeIfPresent(String.self, forKey: .commit)
+        task = try values.decodeIfPresent(String.self, forKey: .task)
+        paths = try values.decode([String].self, forKey: .paths)
+        baselineChecks = try values.decode([Check].self, forKey: .baselineChecks)
+        checks = try values.decode([Check].self, forKey: .checks)
+        detail = try values.decodeIfPresent(String.self, forKey: .detail)
+    }
 }
 
 struct StateStore {

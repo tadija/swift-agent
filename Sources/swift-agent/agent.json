@@ -1,0 +1,8 @@
+{
+  "name": "Swift Agent",
+  "version": "0.2.0",
+  "executableName": "swift-agent",
+  "update": {
+    "repository": "https://github.com/tadija/swift-agent.git"
+  }
+}

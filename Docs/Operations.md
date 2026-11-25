@@ -101,7 +101,11 @@ changes after saving bounded diagnostics, as required by the verification contra
 History JSON records retain bounded harness summaries and check outputs, IDs,
 SHAs, paths and timings. Records are retained indefinitely for audit; native
 schedule output logs should be rotated by the operator. They may contain sensitive
-repository output. No dashboard, database or background SwiftAgent daemon is required.
+repository output. Older records remain readable without rewriting stored files:
+missing or null session IDs use the record ID, harness names use `unknown`,
+terminal flags use `false`, and phase timings use an empty dictionary. Invalid
+field types and missing required record identity/outcome fields still fail decoding.
+No dashboard, database or background SwiftAgent daemon is required.
 
 Cancellation and timeout preserve dirty implementation worktrees. The iteration
 record includes the path when Git refuses to remove one.
@@ -114,5 +118,8 @@ same-agent lock. Different agents have separate history and cancellation files;
 run them sequentially against one repository because concurrent publication can
 fail ref-integrity guards.
 
-The generic CLI has no self-updater. Update the source checkout and rerun
-`./Scripts/install.sh`; specialized applications may provide their own updater.
+`swift-agent update` builds the configured trusted source and atomically replaces
+the installed executable. It is available to specialized products through optional
+CLI source update configuration. See [source updates](SourceUpdates.md) for source
+selection, managed installation restrictions, cancellation and failure guarantees.
+Updating a checkout and rerunning `./Scripts/install.sh` also remains supported.

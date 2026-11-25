@@ -207,6 +207,10 @@ swift-agent run --identity "Custom Scout <scout@example.com>"
 swift-agent run --identity git
 ```
 
+Specialized products can declare their built-in default with `commitIdentity` in
+build-time `agent.json`, mapped through `AgentDefinition(commitIdentity:)`.
+Runtime repository/global configuration and `--identity` override that default.
+
 Both author and committer use the selected identity. It applies only when SwiftAgent creates its commit; repository and global Git configuration are unchanged. `git` uses Git's configured author/committer identities and requires a usable Git identity. Inherited `GIT_*` environment variables are filtered by SwiftAgent.
 
 To keep your Git identity for every run, set `"commitIdentity": "git"` in your repository or global SwiftAgent config. Scheduled runs use these same config files.

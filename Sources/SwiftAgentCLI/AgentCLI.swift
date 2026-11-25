@@ -4,7 +4,7 @@ import SwiftAgent
 /// Shared command handling. The executable owns process termination and build metadata.
 public enum AgentCLI {
     public static func run(agent: AgentDefinition, arguments: [String] = Array(CommandLine.arguments.dropFirst()),
-                           version: String? = nil, update: ((URL) throws -> Void)? = nil) -> Int32 {
+                           version: String? = nil, sourceUpdate: SourceUpdateConfiguration? = nil) -> Int32 {
         let help = """
         \(agent.name) — one run, one improvement, one commit.
 
@@ -12,7 +12,7 @@ public enum AgentCLI {
 
         Commands:
           init             Create \(agent.executableName).json with all built-in defaults in the current directory
-          update           Update this executable (when supported by the application)
+        \(sourceUpdate != nil ? "  update           Update this executable from configured source" : "")
           run              Run isolated improvement iterations
           config           Print effective configuration (global + repository settings)
           status           Show the latest session and active phase
@@ -54,7 +54,7 @@ public enum AgentCLI {
         Help and version:
           \(agent.executableName) --help, \(agent.executableName) -h, \(agent.executableName) help        Show this help
           \(agent.executableName) <command> --help               Show this help
-          \(agent.executableName) --version                     Show version and build
+          \(agent.executableName) --version                     Show product version
 
         State: $XDG_DATA_HOME/\(agent.stateNamespace) (default ~/.local/share/\(agent.stateNamespace)).
         """
@@ -80,8 +80,11 @@ public enum AgentCLI {
                     guard let executable = Bundle.main.executableURL else {
                         throw AgentError.message("Cannot resolve executable path")
                     }
-                    guard let update else { throw AgentError.message("Self-update is unavailable for this agent; rebuild from its source package") }
-                    try update(executable)
+                    if let sourceUpdate {
+                        try SourceUpdater(configuration: sourceUpdate, agent: agent).update(executable: executable) { print($0) }
+                    } else {
+                        throw AgentError.message("Self-update is unavailable for this agent; rebuild from its source package")
+                    }
                 case "init":
                     guard args.count == 1 else { throw AgentError.message("init takes no options") }
                     let destination = directory.appendingPathComponent("\(agent.executableName).json")
@@ -155,14 +158,14 @@ public enum AgentCLI {
                         if let finished = record.finished {
                             let phases = ["Setup", "Baseline", "Harness", "Review", "Verification", "Publication", "Cleanup"]
                             let timings = phases.compactMap { phase in
-                                record.phaseSeconds?[phase].map { "\(phase): \(String(format: "%.1fs", $0))" }
+                                record.phaseSeconds[phase].map { "\(phase): \(String(format: "%.1fs", $0))" }
                             }
                             print("Time: \(String(format: "%.1fs", finished.timeIntervalSince(record.started))) (\(timings.joined(separator: ", ")))")
                         }
                         if let detail = record.detail { print(detail) }
                     }
                     guard Cancellation.requested == 0, let record = records.last else { return 130 }
-                    if records.count < configuration.maxIterations && record.terminal != true {
+                    if records.count < configuration.maxIterations && !record.terminal {
                         switch record.outcome {
                         case "no_candidate":
                             print("Stopped after \(configuration.saturationLimit) consecutive attempts without a candidate.")
@@ -173,7 +176,7 @@ public enum AgentCLI {
                         }
                     }
                     if record.outcome == "cancelled" { return 130 }
-                    if record.terminal == true { return 1 }
+                    if record.terminal { return 1 }
                     if !["committed", "no_candidate"].contains(record.outcome) { return 1 }
                 case "schedule":
                     let scheduler = try Scheduler(agent: agent)
@@ -231,7 +234,7 @@ public enum AgentCLI {
                 case "status":
                     guard args.count == 1 else { throw AgentError.message("status takes no options") }
                     if let record = try runner.status(at: directory) {
-                        print("Session: \(record.sessionID ?? record.id)\nBranch: \(record.branch)\nOutcome: \(record.outcome)")
+                        print("Session: \(record.sessionID)\nBranch: \(record.branch)\nOutcome: \(record.outcome)")
                         if let phase = record.phase { print("Phase: \(phase)") }
                         if let commit = record.commit { print("Commit candidate: \(commit)") }
                         if let detail = record.detail { print(detail) }

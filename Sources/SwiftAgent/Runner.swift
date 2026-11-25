@@ -79,7 +79,7 @@ public final class Runner {
             onIteration(record)
             failures = ["committed", "no_candidate"].contains(record.outcome) ? 0 : failures + 1
             empty = record.outcome == "no_candidate" ? empty + 1 : 0
-            if record.terminal == true || failures >= configuration.failureLimit || empty >= configuration.saturationLimit || ["cancelled", "timed_out"].contains(record.outcome) { break }
+            if record.terminal || failures >= configuration.failureLimit || empty >= configuration.saturationLimit || ["cancelled", "timed_out"].contains(record.outcome) { break }
         }
         return records
     }
@@ -142,15 +142,12 @@ public final class Runner {
         }
         let id = UUID().uuidString.lowercased()
         let worktree = store.directory.appendingPathComponent("worktree-" + id)
-        var record = Record(id: id, repository: repo.root.path, branch: branch, started: Date(), outcome: "running", baseline: baseline)
-        record.sessionID = sessionID
-        record.harness = harness.name
+        var record = Record(id: id, sessionID: sessionID, harness: harness.name, repository: repo.root.path, branch: branch, started: Date(), outcome: "running", baseline: baseline)
         try store.save(record)
         var phaseStarted = ProcessInfo.processInfo.systemUptime
         func finishPhase() {
             if let phase = record.phase {
-                if record.phaseSeconds == nil { record.phaseSeconds = [:] }
-                record.phaseSeconds?[phase] = ProcessInfo.processInfo.systemUptime - phaseStarted
+                record.phaseSeconds[phase] = ProcessInfo.processInfo.systemUptime - phaseStarted
             }
         }
         func beginPhase(_ phase: String) throws {

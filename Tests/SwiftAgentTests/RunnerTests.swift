@@ -47,7 +47,7 @@ final class RunnerTests: RepositoryTestCase {
                 try self.write("value.txt", UUID().uuidString, at: cwd)
                 return self.success()
             }), dataDirectory: data)
-        XCTAssertEqual(Set(records.compactMap(\.sessionID)).count, 1)
+        XCTAssertEqual(Set(records.map(\.sessionID)).count, 1)
         XCTAssertTrue(records.allSatisfy { $0.harness == "fake" })
         XCTAssertEqual(seen.count, 2)
         XCTAssertEqual(records.filter { $0.outcome == "committed" }.count, 2)
@@ -81,7 +81,7 @@ final class RunnerTests: RepositoryTestCase {
         XCTAssertTrue(try git(["log", "-1", "--format=%s", record.branch]).hasPrefix("swift-agent: "))
         let phases = ["Setup", "Baseline", "Harness", "Review", "Verification", "Publication", "Cleanup"]
         XCTAssertEqual(progress, phases.map { $0 + "…" })
-        let timings = try XCTUnwrap(record.phaseSeconds)
+        let timings = record.phaseSeconds
         XCTAssertEqual(Set(timings.keys), Set(phases))
         XCTAssertTrue(timings.values.allSatisfy { $0 >= 0 && $0.isFinite })
         XCTAssertLessThanOrEqual(timings.values.reduce(0, +), try XCTUnwrap(record.finished).timeIntervalSince(record.started))
@@ -139,8 +139,8 @@ final class RunnerTests: RepositoryTestCase {
             XCTAssertEqual(record.baselineChecks.map(\.command), commands.0)
             XCTAssertEqual(record.checks.map(\.command), commands.1)
             XCTAssertTrue((record.baselineChecks + record.checks).allSatisfy { $0.status == 0 })
-            XCTAssertEqual(record.phaseSeconds?["Baseline"] == nil, commands.0.isEmpty)
-            XCTAssertEqual(record.phaseSeconds?["Verification"] == nil, commands.1.isEmpty)
+            XCTAssertEqual(record.phaseSeconds["Baseline"] == nil, commands.0.isEmpty)
+            XCTAssertEqual(record.phaseSeconds["Verification"] == nil, commands.1.isEmpty)
         }
     }
 
@@ -186,9 +186,9 @@ final class RunnerTests: RepositoryTestCase {
             return CommandResult(status: 1, output: "failure", timedOut: false)
         }
         XCTAssertEqual(record.outcome, "harness_failed")
-        XCTAssertNotNil(record.phaseSeconds?["Harness"])
-        XCTAssertNotNil(record.phaseSeconds?["Cleanup"])
-        XCTAssertNil(record.phaseSeconds?["Verification"])
+        XCTAssertNotNil(record.phaseSeconds["Harness"])
+        XCTAssertNotNil(record.phaseSeconds["Cleanup"])
+        XCTAssertNil(record.phaseSeconds["Verification"])
         XCTAssertNil(record.phase)
         try assertNoCommit()
     }
@@ -293,7 +293,7 @@ final class RunnerTests: RepositoryTestCase {
     func testInterruptedRecordIsReconciledBeforeRestart() throws {
         let repo = try Repository(at: checkout)
         let store = try StateStore(repository: repo, dataDirectory: data)
-        try store.save(Record(id: "interrupted-test", repository: checkout.path, branch: "swift-agent/project", started: Date(), outcome: "running"))
+        try store.save(Record(id: "interrupted-test", sessionID: "interrupted-session", harness: "fixture", repository: checkout.path, branch: "swift-agent/project", started: Date(), outcome: "running"))
         let record = try run { _ in self.success() }
         XCTAssertEqual(record.outcome, "no_candidate")
         let recovered = try JSONDecoder().decode(Record.self, from: Data(contentsOf: store.directory.appendingPathComponent("interrupted-test.json")))

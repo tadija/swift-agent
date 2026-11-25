@@ -55,14 +55,30 @@ not proof of semantic correctness or a filesystem sandbox.
 ## Public surface and implementation constraints
 
 [API](API.md) defines library integration and process-wide cooperative cancellation
-limitations. The synchronous public API is preserved. Run one session per embedding
+limitations. The public API is synchronous. Run one session per embedding
 process; run different agent processes sequentially against one repository.
 [Configuration](Configuration.md) owns the shared schema and harness mappings.
 [Operations](Operations.md) owns deadlines, scheduling, recovery, and retention.
-The CLI exposes init, run, config, status, history, stop, doctor, harnesses,
-schedule, and an optional application-owned update action.
+[Build tooling](BuildTooling.md) defines the public `AgentProductPlugin` product.
+Its independent executable generators depend only on Foundation, never the runtime
+engine. Target-local optional `prompt.md` supplies a default mission; required
+`agent.json` supplies build-time identity
+and the sole product version, plus an optional commit identity default. The
+entry point maps that default to `AgentDefinition`; runtime identity overrides
+retain precedence. Runtime JSON remains operational configuration.
+Generated Swift is deterministic, UTF-8 preserving, and compiled into the target;
+no Git metadata, network, timestamp, runtime bundle or tracked output is required.
+`--version` uses the declared name/version and optional explicit build ID; generation
+never discovers Git state. CI can supply artifact provenance in the `build` field.
+The generic executable adopts metadata alone and has no default mission.
 
-macOS 13+ and Linux use Swift 6+ with no external package dependencies. No hosted
+The CLI exposes init, run, config, status, history, stop, doctor, harnesses,
+schedule, and an optional source updater owned by SwiftAgentCLI. Source updates
+are explicitly opted into through typed CLI configuration; optional product metadata provides plain
+repository/reference data. The core runtime and the build plugin
+perform no updates. See [source update specification](SourceUpdates.md).
+
+macOS 13+ and Linux use Swift 6.4+ with no external package dependencies. No hosted
 services, universal workflow framework, multi-agent orchestration, or GUI are part
 of this package. Generic improvements and regressions belong here; specialized
-missions and compatibility contracts belong to their downstream repositories.
+missions and product-specific behavior belong to their downstream repositories.
